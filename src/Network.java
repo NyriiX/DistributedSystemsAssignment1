@@ -1,7 +1,4 @@
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Network extends Thread {
@@ -18,14 +15,12 @@ public class Network extends Thread {
 
     @Override
     public void run() {
-        System.out.println("Network waiting for messages to forward ...");
         while (isRunning()) {
             try {
                 Message receivedMessage = this.messageInbox.take();
-                System.out.println("Forwarding: " + receivedMessage.toString());
                 synchronized (clientListAccess) {
                     if (receivedMessage instanceof UnicastMessage) {
-                        int rid = ((UnicastMessage) receivedMessage).id_receiver;
+                        int rid = ((UnicastMessage) receivedMessage).getReceiverID();
 
                         if (clientList.containsKey(rid)) {
                             clientList.get((rid)).sendToThisClient(receivedMessage);
@@ -37,7 +32,7 @@ public class Network extends Thread {
                     } else if (receivedMessage instanceof MulticastMessage) {
                         for (Integer id : this.clientList.keySet()) {
 
-                            if (id != receivedMessage.id_sender) {
+                            if (id != receivedMessage.getSenderID()) {
                                 clientList.get(id).sendToThisClient(receivedMessage);
                             }
                         }

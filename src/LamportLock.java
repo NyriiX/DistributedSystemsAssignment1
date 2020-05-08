@@ -1,4 +1,3 @@
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -6,10 +5,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class LamportLock {
     private final int id;
     private final Network network;
-    private final LinkedBlockingQueue<Message> messageQueue;
-    private final LinkedList<Message> requestQueue;
-    private long local_lamport_time;
-    private Boolean[] acksReceived;
+    final LinkedBlockingQueue<Message> messageQueue;
+    final LinkedList<Message> requestQueue;
+    long local_lamport_time;
+    boolean[] acksReceived;
 
     LamportLock(int id, Network network) {
         this.id = id;
@@ -33,14 +32,16 @@ public class LamportLock {
         while (!accessGranted()) {
             try {
                 Message message = this.messageQueue.take();
-                this.matchAndIncLocalTime(message);
 
-                if (message.messageType == MessageType.REQUEST) {
-                    this.handleRequest(message);
-                } else if (message.messageType == MessageType.RELEASE) {
-                    this.removeRequest(message.id_sender);
-                } else if (message.messageType == MessageType.ACK) {
-                    this.acksReceived[message.id_sender] = true;
+                // Receiving event --> Adjustment of local time
+                this.matchAndIncLocalTime(message.getTimeStamp());
+
+                if (message.getMessageType() == MessageType.REQUEST) {
+                    this.handleIncomingRequest(message);
+                } else if (message.getMessageType() == MessageType.RELEASE) {
+                    this.removeRequest(message.getSenderID());
+                } else if (message.getMessageType() == MessageType.ACK) {
+                    this.acksReceived[message.getSenderID()] = true;
                 }
 
             } catch (InterruptedException e) {
@@ -50,63 +51,83 @@ public class LamportLock {
     }
 
     // TODO Find a better way to get the number of clients in the network
-    private void sendRequest() {
-        this.acksReceived = new Boolean[Simulator.NUMBER_CLIENTS];
+    void sendRequest() {
+        this.acksReceived = new boolean[Simulator.NUMBER_CLIENTS];
         this.acksReceived[this.id] = true;
         this.increaseLocalTime();
-        Message request = new MulticastMessage(this.id, this.getCurrentLocalTime(), MessageType.REQUEST);
-        this.addRequest(request, true);
+        MulticastMessage request = new MulticastMessage(this.id, this.getCurrentLocalTime(), MessageType.REQUEST);
+        this.addRequest(request);
+
+        //System.out.println(id + " sending request: " + request);
         this.network.sendMessage(request);
+
+        //System.out.println(id + " Sending request now at " + this.getCurrentLocalTime());
     }
 
-    private void addRequest(Message request, boolean setLocalTime) {
-        if (setLocalTime) {
-            request.localTimeStamp = this.getCurrentLocalTime();
-        }
-
+    void addRequest(Message request) {
         this.requestQueue.add(request);
         Collections.sort(this.requestQueue);
     }
 
 
     // checks if client is allowed to access (all acks received + first in request queue)
-    private boolean accessGranted() {
+    boolean accessGranted() {
+        // peak instead of pop, so we dont remove the element from the queue
         Message currentFirstRequest = this.requestQueue.peekFirst();
 
         if (currentFirstRequest == null) {
             return false;
         }
 
-        boolean myRequestIsFirst = currentFirstRequest.id_sender == this.id;
-        boolean allAcksReceived = Arrays.stream(this.acksReceived).allMatch(Boolean::valueOf);
+        boolean myRequestIsFirst = currentFirstRequest.getSenderID() == this.id;
+        boolean allAcksReceived = areAllTrue(this.acksReceived);
+
+        //System.out.println(id + " current access state: " + allAcksReceived + " " + currentFirstRequest + " at: " + this.getCurrentLocalTime());
+        /*
+        for (Message r : this.requestQueue) {
+            System.out.println("\t" + id + " :" + r.toString());
+        }
+        System.out.println("\t" + id + " :" + "----------------------");
+        */
         return (myRequestIsFirst && allAcksReceived);
     }
 
-    private void handleRequest(Message request) {
-        // local time in request is set before via matchAndIncLocalTime
-        this.addRequest(request, false);
-        Message ack = new UnicastMessage(this.id, this.getCurrentLocalTime(), MessageType.ACK, request.id_sender);
+    static boolean areAllTrue(boolean[] array) {
+        for (boolean b : array) if (!b) return false;
+        return true;
+    }
+
+    void handleIncomingRequest(Message request) {
+        this.addRequest(request);
+
+        // Send event resulting from the request must increase the local time again
+        this.increaseLocalTime();
+        Message ack = new UnicastMessage(this.id, this.getCurrentLocalTime(), MessageType.ACK, request.getSenderID());
+        //System.out.println(id + " sending ack: " + ack + " at: " + this.getCurrentLocalTime());
         this.network.sendMessage(ack);
     }
 
 
-    public void release() {
+    void release() {
         // Lock was released by the main application
         // Remove own request from the request queue and send a release message to other clients
         this.removeRequest(this.id);
         this.sendRelease();
+        //System.out.println(id + " lock was released");
     }
 
-    private void sendRelease() {
+    void sendRelease() {
         this.increaseLocalTime();
-        Message release = new MulticastMessage(this.id, this.getCurrentLocalTime(), MessageType.RELEASE);
+        MulticastMessage release = new MulticastMessage(this.id, this.getCurrentLocalTime(), MessageType.RELEASE);
+        //System.out.println(id + " sending release: " + release + " at: " + this.getCurrentLocalTime());
         this.network.sendMessage(release);
     }
 
-    private void removeRequest(int requester_id) {
+    void removeRequest(int requester_id) {
         for (Message request : this.requestQueue) {
             // Break after first so only first is remove, not possible future requests from the same source
-            if (request.id_sender == requester_id) {
+            if (request.getSenderID() == requester_id) {
+                //System.out.println(id + " removing: " + request + " at: " + this.getCurrentLocalTime());
                 this.requestQueue.remove(request);
                 break;
             }
@@ -126,14 +147,11 @@ public class LamportLock {
         this.local_lamport_time++;
     }
 
-    // used when receiving any kind of message
-    // adjusting the local time and save it in the message (only required for request messages)
-    private void matchAndIncLocalTime(Message message) {
-        this.local_lamport_time = Math.max(this.local_lamport_time, message.senderTimeStamp) + 1;
-        message.localTimeStamp = this.local_lamport_time;
+    void matchAndIncLocalTime(long transmitted_timestamp) {
+        this.local_lamport_time = Math.max(this.getCurrentLocalTime(), transmitted_timestamp) + 1;
     }
 
-    private long getCurrentLocalTime() {
+    long getCurrentLocalTime() {
         return this.local_lamport_time;
     }
 }

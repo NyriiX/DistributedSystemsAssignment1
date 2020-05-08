@@ -1,54 +1,75 @@
 public class Message implements Comparable<Message> {
-    public final int id_sender;
-    public final long senderTimeStamp;
-    public final MessageType messageType;
-    public long localTimeStamp;
+    private final int senderID;
+    private long timeStamp;
+    private final MessageType messageType;
 
-    Message(int id_sender, long senderTimeStamp, MessageType messageType) {
-        this.id_sender = id_sender;
-        this.senderTimeStamp = senderTimeStamp;
+    Message(int senderID, long timeStamp, MessageType messageType) {
+        this.senderID = senderID;
+        this.timeStamp = timeStamp;
         this.messageType = messageType;
-        this.localTimeStamp = -999;
     }
 
-    // TODO Remove check if not occured
-    // TODO Evtl. hier erweiterte Lamportzeit implementieren falls notwendig
     @Override
     public int compareTo(Message o) {
 
-        if (this.localTimeStamp == -999 || o.localTimeStamp == -999) {
-            System.out.println("LOCAL TIME NOT SET FOR MESSAGE");
-            System.exit(-1);
+        if (this.timeStamp < o.timeStamp) {
+            return -1;
+        } else if (this.timeStamp > o.timeStamp) {
+            return 1;
+        } else {
+            if (this.senderID < o.senderID) {
+                return -1;
+            } else if (this.senderID > o.senderID) {
+                return 1;
+            } else {
+                return 1;
+            }
         }
-
-        return Long.compare(this.localTimeStamp, o.localTimeStamp);
     }
 
+    public int getSenderID() {
+        return senderID;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
+    }
+
+    public MessageType getMessageType() {
+        return messageType;
+    }
 
     @Override
     public String toString() {
         return "Message{" +
-                "id_sender=" + id_sender +
-                ", senderTimeStamp=" + senderTimeStamp +
+                "senderID=" + senderID +
+                ", timeStamp=" + timeStamp +
                 ", messageType=" + messageType +
-                ", localTimeStamp=" + localTimeStamp +
                 '}';
     }
 }
 
 class UnicastMessage extends Message {
-    public final int id_receiver;
+    private final int receiverID;
 
-    UnicastMessage(int id_sender, long timeStampSender, MessageType messageType, int id_receiver) {
-        super(id_sender, timeStampSender, messageType);
-        this.id_receiver = id_receiver;
+    UnicastMessage(int id_sender, long timeStamp, MessageType messageType, int id_receiver) {
+        super(id_sender, timeStamp, messageType);
+        this.receiverID = id_receiver;
+    }
+
+    public int getReceiverID() {
+        return receiverID;
     }
 }
 
 class MulticastMessage extends Message {
 
-    MulticastMessage(int id_sender, long timeStampSender, MessageType messageType) {
-        super(id_sender, timeStampSender, messageType);
+    MulticastMessage(int id_sender, long timeStamp, MessageType messageType) {
+        super(id_sender, timeStamp, messageType);
     }
 }
 
