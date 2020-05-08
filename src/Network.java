@@ -19,6 +19,8 @@ public class Network extends Thread {
             try {
                 Message receivedMessage = this.messageInbox.take();
                 synchronized (clientListAccess) {
+                    // transmit incoming messages based on their class
+                    // unicasts are send to the specified receiver, multicasts to all registered clients
                     if (receivedMessage instanceof UnicastMessage) {
                         int rid = ((UnicastMessage) receivedMessage).getReceiverID();
 
@@ -27,7 +29,6 @@ public class Network extends Thread {
                         } else {
                             System.out.println("Unknown receiver: " + rid);
                         }
-
 
                     } else if (receivedMessage instanceof MulticastMessage) {
                         for (Integer id : this.clientList.keySet()) {
@@ -56,7 +57,7 @@ public class Network extends Thread {
     void register(LamportLock client, Integer ID) {
         synchronized (this.clientListAccess) {
             this.clientList.put(ID, client);
-            System.out.println("Registered client with id" + ID);
+            System.out.println("Network: Registered client with ID " + ID);
         }
     }
 

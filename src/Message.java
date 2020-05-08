@@ -9,6 +9,8 @@ public class Message implements Comparable<Message> {
         this.messageType = messageType;
     }
 
+    // Comparator for messages using the extended lamport time
+    // Primarily sort by timestamp, if equal compare sender ids
     @Override
     public int compareTo(Message o) {
 
@@ -45,11 +47,8 @@ public class Message implements Comparable<Message> {
 
     @Override
     public String toString() {
-        return "Message{" +
-                "senderID=" + senderID +
-                ", timeStamp=" + timeStamp +
-                ", messageType=" + messageType +
-                '}';
+        return "M{senderID=" + this.getSenderID() + ", timeStamp=" + this.getTimeStamp() +
+                ", messageType=" + this.getMessageType() + '}';
     }
 }
 
@@ -63,6 +62,12 @@ class UnicastMessage extends Message {
 
     public int getReceiverID() {
         return receiverID;
+    }
+
+    @Override
+    public String toString() {
+        return "M{senderID=" + this.getSenderID() + ", timeStamp=" + this.getTimeStamp() +
+                ", messageType=" + this.getMessageType() + ", receiverID=" + this.getMessageType() + '}';
     }
 }
 
