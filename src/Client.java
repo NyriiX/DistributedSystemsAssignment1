@@ -1,34 +1,32 @@
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Random;
 
 public class Client extends Thread {
-    private int id;
-    private Network network;
-    private LinkedList<HashMap> message_queue;
+    private final int id;
     private boolean isRunning;
-    private Random random;
+    private final LamportLock lock;
+    private final Random random;
 
     Client(int id, Network network) {
         this.id = id;
-        this.network = network;
-        this.message_queue = new LinkedList<>();
         this.isRunning = true;
-
-        this.random = new Random();
+        this.lock = new LamportLock(id, network);
+        this.random = new Random(id);
     }
 
     @Override
     public void run() {
         while (this.isRunning()) {
-            this.doSomethingInCriticalBlock();
-
             this.doSomethingNotCritical();
+            this.lock.acquire();
+            this.doSomethingInCriticalBlock();
+            this.lock.release();
         }
     }
 
-    void doSomethingNotCritical() {
-        // Simulate doing something outside of the critical block
+    // Simulate doing something outside of the critical block
+    private void doSomethingNotCritical() {
+        this.lock.increaseLocalTime();
+
         try {
             long timeout = (long) (this.random.nextDouble() * 1000);
             Thread.sleep(timeout);
@@ -37,17 +35,16 @@ public class Client extends Thread {
         }
     }
 
-    void doSomethingInCriticalBlock() {
+    // Simulate doing something in the critical block
+    private void doSomethingInCriticalBlock() {
+        this.lock.increaseLocalTime();
         System.out.println("Client " + this.id + " ENTERED critical block.");
-
-        // Simulate doing something in the critical block
         try {
             long timeout = (long) (this.random.nextDouble() * 1000);
             Thread.sleep(timeout);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
         System.out.println("Client " + this.id + " LEFT critical block.");
     }
 

@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 
 public class Simulator {
-    private final static int NUMBER_CLIENTS = 2;
+    final static int NUMBER_CLIENTS = 2;
     private final static int RUN_TIME_IN_SECS = 10;
     private final ArrayList<Client> clients;
 
