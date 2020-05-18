@@ -1,8 +1,8 @@
 import java.util.ArrayList;
 
 public class Simulator {
-    final static int NUMBER_CLIENTS = 1;
-    final static int RUN_TIME_IN_SECS = 20;
+    final static int NUMBER_CLIENTS = 3;
+    final static int RUN_TIME_IN_SECS = 30;
     final static int MAX_BLOCK_DURATION_IN_SECS = 3;
     final static boolean DEBUGGING_OUTPUT_ENABLED = false;
     final ArrayList<Client> clients;
